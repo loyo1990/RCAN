@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 
 class Model(nn.Module):
-    def __init__(self, args, ckp):
+    def __init__(self, args):
         super(Model, self).__init__()
         print('Making model...')
 
@@ -27,13 +27,6 @@ class Model(nn.Module):
         if not args.cpu and args.n_GPUs > 1:
             self.model = nn.DataParallel(self.model, range(args.n_GPUs))
 
-        self.load(
-            ckp.dir,
-            pre_train=args.pre_train,
-            resume=args.resume,
-            cpu=args.cpu
-        )
-        if args.print_model: print(self.model)
 
     def forward(self, x, idx_scale):
         self.idx_scale = idx_scale
@@ -81,38 +74,19 @@ class Model(nn.Module):
                 os.path.join(apath, 'model', 'model_{}.pt'.format(epoch))
             )
 
-    def load(self, apath, pre_train='.', resume=-1, cpu=False):
+    def load(self, ckt_path, cpu=False):
         if cpu:
             kwargs = {'map_location': lambda storage, loc: storage}
         else:
             kwargs = {}
 
-        if resume == -1:
-            self.get_model().load_state_dict(
-                torch.load(
-                    os.path.join(apath, 'model', 'model_latest.pt'),
-                    **kwargs
-                ),
-                strict=False
-            )
-        elif resume == 0:
-            if pre_train != '.':
-                print('Loading model from {}'.format(pre_train))
-                self.get_model().load_state_dict(
-                    torch.load(pre_train, **kwargs),
-                    strict=False
-                )
-        else:
-            self.get_model().load_state_dict(
-                torch.load(
-                    os.path.join(apath, 'model', 'model_{}.pt'.format(resume)),
-                    **kwargs
-                ),
-                strict=False
-            )
+        self.get_model().load_state_dict(
+            torch.load(ckt_path, **kwargs),
+            strict=False
+        )
 
     def forward_chop(self, x, shave=10, min_size=160000):
-        scale = self.scale[self.idx_scale]
+        scale = self.scale
         n_GPUs = min(self.n_GPUs, 4)
         b, c, h, w = x.size()
         h_half, w_half = h // 2, w // 2
